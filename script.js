@@ -41,6 +41,7 @@ class ACVoiceChanger {
         this.playbackTimer = null;
         this.animationFrameId = null;
         this.currentSessionGain = null;
+        this.demonBuffer = null;
 
         // Sample Buffer
         this.libraryBuffer = null;
@@ -98,14 +99,28 @@ class ACVoiceChanger {
             const response = await fetch('./animalese.wav');
             if (!response.ok) {
                 console.warn("Could not load animalese.wav - Sample mode will fall back or fail.");
-                return;
+            } else {
+                const arrayBuffer = await response.arrayBuffer();
+                this.libraryBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+                this.isLibraryLoaded = true;
+                console.log("Animalese library loaded!");
             }
-            const arrayBuffer = await response.arrayBuffer();
-            this.libraryBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
-            this.isLibraryLoaded = true;
-            console.log("Animalese library loaded!");
         } catch (e) {
             console.error("Error loading animalese library:", e);
+        }
+
+        // Load Demon Lib
+        try {
+            const demonLib = await fetch('demon.wav');
+            if (demonLib.ok) {
+                const demonArrVal = await demonLib.arrayBuffer();
+                this.demonBuffer = await this.audioCtx.decodeAudioData(demonArrVal);
+                console.log("Demon library loaded!");
+            } else {
+                console.warn('demon.wav not found or failed to load');
+            }
+        } catch (e) {
+            console.warn('Error loading demon.wav:', e);
         }
     }
 
@@ -133,11 +148,6 @@ class ACVoiceChanger {
             mode: 'syllables'
         };
 
-        this.pitchSlider.value = defaults.speed; // wait, this was correct in prev versions but lets set it carefully
-        // Actually, let's keep the slider value raw, and handle math in synthesis.
-        // If speed slider is 0.05 to 0.2.
-        // We want 0.12 roughly as "normal".
-
         this.pitchSlider.value = defaults.pitch;
         this.pitchDisplay.textContent = defaults.pitch;
 
@@ -163,7 +173,7 @@ class ACVoiceChanger {
         const mode = this.synthModeSelector.value;
         const tokens = this.tokenize(this.transcribedText, mode);
 
-        if ((mode === 'characters' || mode === 'robot') && this.isLibraryLoaded) {
+        if ((mode === 'characters' || mode === 'robot' || mode === 'demon_sampled') && this.isLibraryLoaded) {
             return this.synthesizeSamples(context, destinationNode, tokens, dryRun, mode);
         } else {
             return this.synthesizeOscillators(context, destinationNode, tokens, dryRun, mode);
@@ -239,7 +249,7 @@ class ACVoiceChanger {
             }
 
             const tokenLower = token.text.toLowerCase();
-            const actualDuration = speed * token.text.length;
+            const actualDuration = token.text.length * speed;
 
             if (!dryRun) {
                 const osc = context.createOscillator();
@@ -311,8 +321,56 @@ class ACVoiceChanger {
                     // Boxy envelope
                     gainNode.gain.setValueAtTime(sustainLevel, startTime + attackTime);
                     gainNode.gain.setValueAtTime(sustainLevel, startTime + actualDuration - releaseTime);
+                } else if (mode === 'chorus') {
+                    // Main OSC handled, added detuned ones
+                    const detune1 = context.createOscillator();
+                    const detune2 = context.createOscillator();
+                    detune1.type = 'sawtooth';
+                    detune2.type = 'sawtooth';
+                    detune1.frequency.setValueAtTime(frequency, now + timeOffset);
+                    detune2.frequency.setValueAtTime(frequency, now + timeOffset);
+                    detune1.detune.value = -15; // cents
+                    detune2.detune.value = 15;
+
+                    const dGain = context.createGain();
+                    dGain.gain.value = 0.3; // Lower volume for backing
+                    detune1.connect(dGain);
+                    detune2.connect(dGain);
+                    dGain.connect(filter);
+
+                    detune1.start(startTime);
+                    detune1.stop(startTime + actualDuration + releaseTime + 0.1);
+                    detune2.start(startTime);
+                    detune2.stop(startTime + actualDuration + releaseTime + 0.1);
+
+                    gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + attackTime);
+                    gainNode.gain.setValueAtTime(sustainLevel, startTime + actualDuration * 0.8);
+
+                } else if (mode === 'crystal') {
+                    // FM Synthesis
+                    // Carrier is 'osc' (already created)
+                    osc.type = 'sine';
+
+                    // Modulator
+                    const mod = context.createOscillator();
+                    mod.type = 'sine';
+                    mod.frequency.setValueAtTime(frequency * 2.0, now + timeOffset); // 2:1 ratio for harmonic bell
+
+                    const modGain = context.createGain();
+                    modGain.gain.setValueAtTime(500, now + timeOffset); // Modulation Index depth
+                    modGain.gain.exponentialRampToValueAtTime(1, now + timeOffset + actualDuration); // Ping decay
+
+                    mod.connect(modGain);
+                    modGain.connect(osc.frequency);
+                    mod.start(startTime);
+                    mod.stop(startTime + actualDuration + releaseTime);
+
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + 0.01); // Instant attack
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + actualDuration); // Bell decay
+
                 } else {
-                    // Ramp envelope
+                    // Default ramp envelope
                     gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + attackTime);
                     gainNode.gain.setValueAtTime(sustainLevel, startTime + actualDuration * 0.8);
                 }
@@ -347,8 +405,13 @@ class ACVoiceChanger {
         const timbreFreq = parseInt(this.timbreSlider.value, 10);
         const pitchVariance = parseInt(this.varianceSlider.value, 10);
 
+        let targetBuffer = this.libraryBuffer;
+        if (mode === 'demon_sampled' && this.demonBuffer) {
+            targetBuffer = this.demonBuffer;
+        }
+
         const library_letter_secs = 0.15;
-        const sampleRate = this.libraryBuffer.sampleRate;
+        const sampleRate = targetBuffer.sampleRate;
         const samplesPerLetterLib = Math.floor(library_letter_secs * sampleRate);
 
         const now = context.currentTime;
@@ -388,7 +451,7 @@ class ACVoiceChanger {
                 const filterNode = context.createBiquadFilter();
 
                 // Chain: Source -> Filter -> Gain -> Destination
-                source.buffer = this.libraryBuffer;
+                source.buffer = targetBuffer;
                 source.connect(filterNode);
                 filterNode.connect(gainNode);
                 gainNode.connect(destinationNode);
