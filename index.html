@@ -42,15 +42,15 @@
                     <div class="setting-group" style="grid-column: 1 / -1;">
                         <label>Synthesis Style</label>
                         <select id="synth-mode-selector" class="ac-select">
-                            <option value="syllables" selected>Synthesized</option>
-                            <option value="characters">Sampled (Credit: Acedio)</option>
-                            <option value="demon_sampled">Sampled Demon (demon.wav)</option>
+                            <option value="syllables" selected>Default</option>
+                            <option value="characters">Animalese (Credit: Acedio)</option>
+                            <option value="demon_sampled">Demon</option>
                             <option value="robot">Robot</option>
-                            <option value="retro">8-Bit (Retro)</option>
-                            <option value="alien">Alien (Vibrato)</option>
-                            <option value="beast">Beast (Growl)</option>
-                            <option value="chorus">Chorus (Ensemble)</option>
-                            <option value="crystal">Crystal (FM)</option>
+                            <option value="retro">Retro</option>
+                            <option value="alien">Alien</option>
+                            <option value="beast">Beast</option>
+                            <option value="chorus">Chorus</option>
+                            <option value="crystal">Crystal</option>
                         </select>
                     </div>
                     <div class="setting-group">
@@ -98,6 +98,10 @@
 
                     <button id="download-btn" class="ac-button record" disabled>
                         <i data-lucide="download"></i> Download
+                    </button>
+
+                    <button id="export-timing-btn" class="ac-button record" style="background-color: #6c5ce7;" disabled>
+                        <i data-lucide="file-json"></i> Export Timing
                     </button>
                 </div>
             </div>

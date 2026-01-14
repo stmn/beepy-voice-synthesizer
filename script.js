@@ -9,6 +9,7 @@ class ACVoiceChanger {
         this.playTextSpan = this.playAnimaleseBtn.querySelector('.btn-text');
 
         this.downloadBtn = document.getElementById('download-btn');
+        this.exportTimingBtn = document.getElementById('export-timing-btn');
         this.transcriptionInput = document.getElementById('transcription-input');
         this.karaokeDisplay = document.getElementById('karaoke-display');
         this.randomQuoteBtn = document.getElementById('random-quote-btn');
@@ -66,6 +67,7 @@ class ACVoiceChanger {
         // Bind Events
         this.playAnimaleseBtn.addEventListener('click', () => this.togglePlayback());
         this.downloadBtn.addEventListener('click', () => this.downloadAudio());
+        this.exportTimingBtn.addEventListener('click', () => this.exportTiming());
 
         this.resetDefaultsBtn.addEventListener('click', () => this.resetDefaults());
 
@@ -129,6 +131,7 @@ class ACVoiceChanger {
         const hasText = this.transcribedText.trim().length > 0;
         this.playAnimaleseBtn.disabled = !hasText;
         this.downloadBtn.disabled = !hasText;
+        this.exportTimingBtn.disabled = !hasText;
     }
 
     insertRandomQuote() {
@@ -680,6 +683,61 @@ class ACVoiceChanger {
                 lucide.createIcons();
             }, 2000);
         }
+    }
+
+    async exportTiming() {
+        this.handleInput();
+        if (!this.transcribedText) return;
+
+        const originalText = this.exportTimingBtn.innerHTML;
+        this.exportTimingBtn.innerHTML = '<i data-lucide="loader"></i> Exporting...';
+        lucide.createIcons();
+
+        // Generate timeline without audio
+        const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, null, true); // dryRun=true
+
+        const exportData = {
+            totalDuration: duration,
+            timeline: timeline.map(item => ({
+                text: item.text,
+                startTime: parseFloat(item.startTime.toFixed(3)),
+                duration: parseFloat(item.duration.toFixed(3)),
+                type: item.type
+            }))
+        };
+
+        const jsonString = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        let filenameText = this.transcribedText.trim();
+        filenameText = filenameText.replace(/[^a-zA-Z0-9\s]/g, "");
+        const words = filenameText.split(/\s+/).filter(w => w.length > 0);
+        let safeName = words.slice(0, 5).join("_");
+        if (safeName.length > 30) safeName = safeName.substring(0, 30);
+        if (!safeName) safeName = "animalese_timing";
+
+        const filename = `${safeName}_timing.json`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.exportTimingBtn.innerHTML = '<i data-lucide="check"></i> Done!';
+            lucide.createIcons();
+
+            setTimeout(() => {
+                this.exportTimingBtn.innerHTML = originalText;
+                lucide.createIcons();
+            }, 2000);
+        }, 100);
     }
 
     saveBufferAsWav(buffer) {
