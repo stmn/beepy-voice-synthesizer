@@ -13,6 +13,9 @@ class ACVoiceChanger {
         this.karaokeDisplay = document.getElementById('karaoke-display');
         this.randomQuoteBtn = document.getElementById('random-quote-btn');
 
+        this.robotAvatar = document.getElementById('robot-avatar');
+        this.preloadRobotImages();
+
         this.clockElement = document.getElementById('clock');
 
         // Settings Reset
@@ -34,10 +37,10 @@ class ACVoiceChanger {
         this.pauseDisplay = document.getElementById('val-text-pause');
         this.varianceDisplay = document.getElementById('val-variance');
 
-        // Init Audio Context
         this.audioCtx = null;
         this.playbackTimer = null;
         this.animationFrameId = null;
+        this.currentSessionGain = null;
 
         // Sample Buffer
         this.libraryBuffer = null;
@@ -79,6 +82,9 @@ class ACVoiceChanger {
         // Clock
         this.updateClock();
         setInterval(() => this.updateClock(), 1000 * 60);
+
+        // Initial Quote
+        this.insertRandomQuote();
     }
 
     setupSliderListener(slider, display, suffix = '') {
@@ -421,7 +427,11 @@ class ACVoiceChanger {
         this.randomQuoteBtn.style.display = 'none';
         this.karaokeDisplay.style.display = 'block';
 
-        const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.audioCtx.destination);
+        // Create a new master gain for this session to allow clean stopping
+        this.currentSessionGain = this.audioCtx.createGain();
+        this.currentSessionGain.connect(this.audioCtx.destination);
+
+        const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.currentSessionGain);
 
         this.karaokeDisplay.innerHTML = '';
         timeline.forEach((item) => {
@@ -439,14 +449,32 @@ class ACVoiceChanger {
         const tick = () => {
             if (!this.isPlaying) return;
             const elapsedTime = this.audioCtx.currentTime - startTime;
+            let currentType = null;
 
             timeline.forEach(item => {
                 if (elapsedTime >= item.startTime && elapsedTime < item.startTime + item.duration) {
                     if (item.element) item.element.classList.add('active');
+                    currentType = item.type;
                 } else {
                     if (item.element) item.element.classList.remove('active');
                 }
             });
+
+            // Robot Animation Logic
+            if (this.isPlaying && currentType === 'token') {
+                // Talking state: Alternate robot2 and robot3
+                // Use a slower cadence than frames, e.g. every 100ms
+                const frameIndex = Math.floor(Date.now() / 150) % 2;
+                const targetSrc = frameIndex === 0 ? 'robot2.webp' : 'robot3.webp';
+                if (this.robotAvatar.getAttribute('src') !== targetSrc) {
+                    this.robotAvatar.src = targetSrc;
+                }
+            } else {
+                // Pause/Space/Idle state
+                if (this.robotAvatar.getAttribute('src') !== 'robot1.webp') {
+                    this.robotAvatar.src = 'robot1.webp';
+                }
+            }
 
             this.animationFrameId = requestAnimationFrame(tick);
         };
@@ -463,6 +491,12 @@ class ACVoiceChanger {
         if (this.playbackTimer) clearTimeout(this.playbackTimer);
         if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
 
+        // Immediate silence by disconnecting the session node
+        if (this.currentSessionGain) {
+            this.currentSessionGain.disconnect();
+            this.currentSessionGain = null;
+        }
+
         if (this.audioCtx && this.audioCtx.state === 'running') {
             await this.audioCtx.suspend();
         }
@@ -473,6 +507,8 @@ class ACVoiceChanger {
         this.karaokeDisplay.style.display = 'none';
         this.transcriptionInput.style.display = 'block';
         this.randomQuoteBtn.style.display = 'flex';
+
+        if (this.robotAvatar) this.robotAvatar.src = 'robot1.webp';
     }
 
     updatePlayButtonUI() {
@@ -624,6 +660,13 @@ class ACVoiceChanger {
     updateClock() {
         const now = new Date();
         this.clockElement.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    preloadRobotImages() {
+        ['robot1.webp', 'robot2.webp', 'robot3.webp'].forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
     }
 }
 

@@ -21,13 +21,20 @@
             <div class="app-content">
                 <div class="dialog-box-container">
                     <div class="character-name-tag">Message</div>
-                    <div class="dialog-box">
-                        <textarea id="transcription-input" placeholder="Type here..."></textarea>
-                        <div id="karaoke-display" style="display: none;"></div>
-                        <button id="random-quote-btn" class="icon-only-button">
-                            <i data-lucide="shuffle"></i>
-                            <span class="tooltip-popup tooltip-left">Insert Random Quote</span>
-                        </button>
+                    <div class="message-row">
+                        <div class="dialog-box">
+                            <div class="input-wrapper">
+                                <textarea id="transcription-input" placeholder="Type here..."></textarea>
+                                <div id="karaoke-display" style="display: none;"></div>
+                            </div>
+                            <button id="random-quote-btn" class="icon-only-button">
+                                <i data-lucide="shuffle"></i>
+                                <span class="tooltip-popup tooltip-left">Insert Random Quote</span>
+                            </button>
+                        </div>
+                        <div class="robot-container">
+                            <img id="robot-avatar" src="robot1.webp" alt="Robot Avatar">
+                        </div>
                     </div>
                 </div>
 

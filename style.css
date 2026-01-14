@@ -81,12 +81,19 @@ body {
     box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
 }
 
+.message-row {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
 .dialog-box {
     background-color: white;
     border-radius: 20px;
     /* Squircle */
     padding: 25px 20px 20px;
-    min-height: 100px;
+    height: 100px;
+    /* Fixed height for stability */
     font-size: 18px;
     line-height: 1.4;
     box-shadow:
@@ -96,8 +103,52 @@ body {
     border: 2px solid white;
     display: flex;
     flex-direction: column;
+    /* Back to column for text and potentially buttons if needed, though input-wrapper handles text */
     position: relative;
     /* For timestamp/random button */
+    flex: 1;
+    /* Take remaining space */
+}
+
+.input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.robot-container {
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    /* Align to top removed for center alignment */
+}
+
+#robot-avatar {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    transform: scaleX(-1);
+    /* Flip horizontally */
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% {
+        transform: scaleX(-1) translateY(0px);
+    }
+
+    50% {
+        transform: scaleX(-1) translateY(-10px);
+    }
+
+    100% {
+        transform: scaleX(-1) translateY(0px);
+    }
 }
 
 .icon-only-button {
