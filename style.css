@@ -190,6 +190,30 @@ body {
     cursor: pointer;
 }
 
+.setting-group input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+.ac-select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: var(--ac-brown);
+    font-family: inherit;
+    font-weight: bold;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+.ac-select:focus {
+    border-color: var(--ac-green);
+    box-shadow: 0 0 0 2px rgba(107, 212, 119, 0.3);
+}
+
 #transcription-input {
     width: 100%;
     height: 100%;

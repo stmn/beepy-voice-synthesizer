@@ -11,7 +11,7 @@ class ACVoiceChanger {
         this.downloadBtn = document.getElementById('download-btn');
         this.transcriptionInput = document.getElementById('transcription-input');
         this.karaokeDisplay = document.getElementById('karaoke-display');
-        this.randomQuoteBtn = document.getElementById('random-quote-btn'); // New element
+        this.randomQuoteBtn = document.getElementById('random-quote-btn');
 
         this.clockElement = document.getElementById('clock');
 
@@ -19,12 +19,13 @@ class ACVoiceChanger {
         this.settingsArea = document.getElementById('settings-area');
         this.resetDefaultsBtn = document.getElementById('reset-defaults-btn');
 
-        // Settings Sliders
+        // Settings Sliders & Selectors
         this.pitchSlider = document.getElementById('pitch-slider');
         this.speedSlider = document.getElementById('speed-slider');
         this.timbreSlider = document.getElementById('timbre-slider');
         this.pauseSlider = document.getElementById('pause-slider');
         this.varianceSlider = document.getElementById('variance-slider');
+        this.synthModeSelector = document.getElementById('synth-mode-selector');
 
         // Settings Displays
         this.pitchDisplay = document.getElementById('val-pitch');
@@ -37,6 +38,12 @@ class ACVoiceChanger {
         this.audioCtx = null;
         this.playbackTimer = null;
         this.animationFrameId = null;
+
+        // Sample Buffer
+        this.libraryBuffer = null;
+        this.isLibraryLoaded = false;
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); // Init early for loading
+        this.loadLibrary();
 
         // Quotes List
         this.quotes = [
@@ -80,6 +87,22 @@ class ACVoiceChanger {
         });
     }
 
+    async loadLibrary() {
+        try {
+            const response = await fetch('./animalese.wav');
+            if (!response.ok) {
+                console.warn("Could not load animalese.wav - Sample mode will fall back or fail.");
+                return;
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            this.libraryBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+            this.isLibraryLoaded = true;
+            console.log("Animalese library loaded!");
+        } catch (e) {
+            console.error("Error loading animalese library:", e);
+        }
+    }
+
     handleInput() {
         this.transcribedText = this.transcriptionInput.value;
         const hasText = this.transcribedText.trim().length > 0;
@@ -90,18 +113,24 @@ class ACVoiceChanger {
     insertRandomQuote() {
         const randomIndex = Math.floor(Math.random() * this.quotes.length);
         this.transcriptionInput.value = this.quotes[randomIndex];
-        this.handleInput(); // Trigger input logic to enable buttons
+        this.handleInput();
     }
 
     resetDefaults() {
         // Default Values
         const defaults = {
             pitch: 600,
-            speed: 0.09,
+            speed: 0.14,
             timbre: 400,
             pause: 150,
-            variance: 50
+            variance: 50,
+            mode: 'syllables'
         };
+
+        this.pitchSlider.value = defaults.speed; // wait, this was correct in prev versions but lets set it carefully
+        // Actually, let's keep the slider value raw, and handle math in synthesis.
+        // If speed slider is 0.05 to 0.2.
+        // We want 0.12 roughly as "normal".
 
         this.pitchSlider.value = defaults.pitch;
         this.pitchDisplay.textContent = defaults.pitch;
@@ -117,61 +146,94 @@ class ACVoiceChanger {
 
         this.varianceSlider.value = defaults.variance;
         this.varianceDisplay.textContent = defaults.variance;
+
+        this.synthModeSelector.value = defaults.mode;
     }
 
-    // --- Core Synthesis Logic ---
+    // --- Core Logic ---
     scheduleSynthesis(context, destinationNode, dryRun = false) {
         if (!this.transcribedText) return { duration: 0, timeline: [] };
 
-        const text = this.transcribedText.toLowerCase();
+        const mode = this.synthModeSelector.value;
+        const tokens = this.tokenize(this.transcribedText, mode);
 
-        // Get Settings
-        const basePitch = parseInt(this.pitchSlider.value, 10);
-        const speed = parseFloat(this.speedSlider.value);
+        if ((mode === 'characters' || mode === 'robot') && this.isLibraryLoaded) {
+            return this.synthesizeSamples(context, destinationNode, tokens, dryRun, mode);
+        } else {
+            return this.synthesizeOscillators(context, destinationNode, tokens, dryRun);
+        }
+    }
+
+    tokenize(text, mode) {
+        let i = 0;
+        const tokens = [];
+        const useSyllables = (mode !== 'characters');
+
+        while (i < text.length) {
+            const char = text[i];
+            if (char === ' ') {
+                tokens.push({ type: 'space', text: ' ' });
+                i++; continue;
+            }
+            if (!char.match(/[a-z0-9]/i)) {
+                tokens.push({ type: 'punct', text: char });
+                i++; continue;
+            }
+
+            if (useSyllables) {
+                const remaining = text.slice(i);
+                const match = remaining.match(/^([^aeiouy\s]*[aeiouy0-9]+|[^aeiouy\s]+)/i);
+                let tokenText = char;
+                if (match) tokenText = match[0];
+                tokens.push({ type: 'token', text: tokenText });
+                i += tokenText.length;
+            } else {
+                tokens.push({ type: 'token', text: char });
+                i++;
+            }
+        }
+        return tokens;
+    }
+
+    getDurationPerChar() {
+        // Slider: 0.05 (Slow?) -> 0.2 (Fast?)
+        // Originally: duration = slider_value. So 0.05=Fast, 0.2=Slow.
+        // User wants: Higher slider = Faster (Shorter duration).
+        // Let's invert: duration ~ (0.25 - slider_value).
+        // If slider 0.05: duration 0.20 (Slow)
+        // If slider 0.20: duration 0.05 (Fast)
+        const val = parseFloat(this.speedSlider.value);
+        return 0.25 - val;
+    }
+
+    synthesizeOscillators(context, destinationNode, tokens, dryRun) {
+        let basePitch = parseInt(this.pitchSlider.value, 10);
+        const speed = this.getDurationPerChar(); // Now correctly "Duration"
         const timbre = parseInt(this.timbreSlider.value, 10);
         const pauseDuration = parseInt(this.pauseSlider.value, 10) / 1000;
         const pitchVariance = parseInt(this.varianceSlider.value, 10);
 
         const now = context.currentTime;
         let timeOffset = 0;
-
-        let i = 0;
         let tokenIndex = 0;
         const timeline = [];
 
-        while (i < text.length) {
-            const char = text[i];
-
-            // Handle Space
-            if (char === ' ') {
+        tokens.forEach(token => {
+            if (token.type === 'space') {
                 timeline.push({ type: 'space', text: ' ', startTime: timeOffset, duration: speed * 0.4 });
                 timeOffset += speed * 0.4;
-                i++;
-                continue;
+                return;
             }
-
-            // Handle Punctuation
-            if (!char.match(/[a-z0-9]/)) {
+            if (token.type === 'punct') {
                 let dur = speed * 0.5;
-                if (char.match(/[.,!?]/)) dur = pauseDuration;
-
-                timeline.push({ type: 'punct', text: char, startTime: timeOffset, duration: dur });
+                if (token.text.match(/[.,!?]/)) dur = pauseDuration;
+                timeline.push({ type: 'punct', text: token.text, startTime: timeOffset, duration: dur });
                 timeOffset += dur;
-                i++;
-                continue;
+                return;
             }
 
-            // Tokenization
-            const remaining = text.slice(i);
-            const match = remaining.match(/^([^aeiouy\s]*[aeiouy0-9]+|[^aeiouy\s]+)/i);
-
-            let token = char;
-            if (match) token = match[0];
-
-            const originalToken = this.transcribedText.substring(i, i + token.length);
-
-            // Calculate Audio Parameters
-            const actualDuration = speed * token.length;
+            const tokenLower = token.text.toLowerCase();
+            const actualDuration = speed * token.text.length;
 
             if (!dryRun) {
                 const osc = context.createOscillator();
@@ -182,25 +244,19 @@ class ACVoiceChanger {
                 filter.connect(gainNode);
                 gainNode.connect(destinationNode);
 
-                // 1. WAVEFORM
                 osc.type = 'sawtooth';
-
-                // 2. PITCH
-                const charCode = token.charCodeAt(0);
+                const charCode = tokenLower.charCodeAt(0);
                 const pitchOffset = ((charCode - 97) % 6) * pitchVariance;
                 const intonation = Math.sin(tokenIndex * 0.5) * pitchVariance;
                 osc.frequency.setValueAtTime(basePitch + pitchOffset + intonation, now + timeOffset);
 
-                // 3. FILTER
                 filter.type = 'lowpass';
                 filter.Q.value = 5;
                 const modulation = (charCode % 5) * 200;
                 const filterFreq = timbre + modulation;
-
                 filter.frequency.setValueAtTime(filterFreq, now + timeOffset);
                 filter.frequency.linearRampToValueAtTime(filterFreq + 300, now + timeOffset + (actualDuration * 0.5));
 
-                // 4. AMPLITUDE
                 const startTime = now + timeOffset;
                 gainNode.gain.setValueAtTime(0, startTime);
                 gainNode.gain.linearRampToValueAtTime(0.4, startTime + 0.03);
@@ -211,17 +267,131 @@ class ACVoiceChanger {
                 osc.stop(startTime + actualDuration + 0.1);
             }
 
-            timeline.push({
-                type: 'token',
-                text: originalToken,
-                startTime: timeOffset,
-                duration: actualDuration
-            });
-
+            timeline.push({ type: 'token', text: token.text, startTime: timeOffset, duration: actualDuration });
             timeOffset += actualDuration * 0.90;
-            i += token.length;
             tokenIndex++;
-        }
+        });
+
+        return { duration: timeOffset + 0.5, timeline: timeline };
+    }
+
+    synthesizeSamples(context, destinationNode, tokens, dryRun, mode) {
+        // Check Settings
+        let rawPitch = parseInt(this.pitchSlider.value, 10);
+        // Map rawPitch to playbackRate. 600 is default. 
+        // 600 -> 1.0. 
+        // 1200 -> 2.0. 
+        // 200 -> 0.33.
+        const basePlaybackRate = rawPitch / 600.0;
+
+        const speedVal = this.getDurationPerChar();
+        let charDuration = speedVal * 0.9; // Slight adjustment for audio files
+
+        const pauseDuration = parseInt(this.pauseSlider.value, 10) / 1000;
+        const timbreFreq = parseInt(this.timbreSlider.value, 10);
+        const pitchVariance = parseInt(this.varianceSlider.value, 10);
+
+        const library_letter_secs = 0.15;
+        const sampleRate = this.libraryBuffer.sampleRate;
+        const samplesPerLetterLib = Math.floor(library_letter_secs * sampleRate);
+
+        const now = context.currentTime;
+        let timeOffset = 0;
+        const timeline = [];
+        let tokenIndex = 0;
+
+        tokens.forEach(token => {
+            if (token.type === 'space') {
+                timeline.push({ type: 'space', text: ' ', startTime: timeOffset, duration: charDuration });
+                timeOffset += charDuration;
+                return;
+            }
+            if (token.type === 'punct') {
+                let dur = charDuration;
+                if (token.text.match(/[.,!?]/)) dur = pauseDuration;
+                timeline.push({ type: 'punct', text: token.text, startTime: timeOffset, duration: dur });
+                timeOffset += dur;
+                return;
+            }
+
+            const tokenText = token.text.toUpperCase();
+            const firstChar = tokenText[0];
+
+            if (!firstChar.match(/[A-Z]/)) {
+                timeOffset += charDuration;
+                return;
+            }
+
+            const charCode = firstChar.charCodeAt(0) - 65;
+            const startSample = charCode * samplesPerLetterLib;
+            const actualDuration = tokenText.length * charDuration;
+
+            if (!dryRun) {
+                const source = context.createBufferSource();
+                const gainNode = context.createGain();
+                const filterNode = context.createBiquadFilter();
+
+                // Chain: Source -> Filter -> Gain -> Destination
+                source.buffer = this.libraryBuffer;
+                source.connect(filterNode);
+                filterNode.connect(gainNode);
+                gainNode.connect(destinationNode);
+
+                // --- 1. Apply Pitch & Variance (Playback Rate) ---
+                // Variance in Oscillator mode is +/- freq.
+                // Here we jitter the playback rate.
+                // pitchVariance is 0-100.
+                // Let's say max variance makes rate +/- 20%.
+                const varianceFactor = (pitchVariance / 100) * 0.2;
+                // Pseudo-random based on tokenIndex to be deterministic for repeats? 
+                // Or just Math.random()? Math.sin is used in oscillator. Let's use Math.sin for consistency.
+                const jitter = Math.sin(tokenIndex * 0.5) * varianceFactor;
+                source.playbackRate.value = basePlaybackRate + jitter;
+
+                // --- 2. Apply Timbre (Filter) ---
+                // Lowpass filter to muffle or brighten sound.
+                // Timbre slider 100 - 2000.
+                filterNode.type = 'lowpass';
+                filterNode.frequency.value = timbreFreq;
+                // Add a little dynamic envelope to filter for "wah" effect?
+                // Maybe subtle.
+                filterNode.frequency.linearRampToValueAtTime(timbreFreq + 200, now + timeOffset + (actualDuration * 0.5));
+
+                const startTime = now + timeOffset;
+                const offsetInLibrary = startSample / sampleRate;
+
+                const isRobot = (mode === 'robot');
+
+                if (isRobot) {
+                    source.loop = true;
+                    // Tighter loop for Robot
+                    source.loopStart = offsetInLibrary + 0.02;
+                    source.loopEnd = offsetInLibrary + 0.035;
+
+                    source.start(startTime, offsetInLibrary);
+                    source.stop(startTime + actualDuration);
+
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(0.8, startTime + 0.01);
+                    gainNode.gain.setValueAtTime(0.8, startTime + actualDuration - 0.01);
+                    gainNode.gain.linearRampToValueAtTime(0, startTime + actualDuration);
+
+                } else {
+                    // Sampled (Classic)
+                    source.loop = false;
+                    source.start(startTime, offsetInLibrary);
+                    source.stop(startTime + actualDuration);
+
+                    gainNode.gain.setValueAtTime(0.8, startTime);
+                    gainNode.gain.setValueAtTime(0.8, startTime + actualDuration - 0.02);
+                    gainNode.gain.linearRampToValueAtTime(0, startTime + actualDuration);
+                }
+            }
+
+            timeline.push({ type: 'token', text: token.text, startTime: timeOffset, duration: actualDuration });
+            timeOffset += actualDuration;
+            tokenIndex++;
+        });
 
         return { duration: timeOffset + 0.5, timeline: timeline };
     }
@@ -241,14 +411,14 @@ class ACVoiceChanger {
             await this.audioCtx.resume();
         }
 
-        this.handleInput(); // Ensure fresh text
+        this.handleInput();
         if (!this.transcribedText) return;
 
         this.isPlaying = true;
         this.updatePlayButtonUI();
 
         this.transcriptionInput.style.display = 'none';
-        this.randomQuoteBtn.style.display = 'none'; // Hide quote button during karaoke
+        this.randomQuoteBtn.style.display = 'none';
         this.karaokeDisplay.style.display = 'block';
 
         const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.audioCtx.destination);
@@ -293,9 +463,8 @@ class ACVoiceChanger {
         if (this.playbackTimer) clearTimeout(this.playbackTimer);
         if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
 
-        if (this.audioCtx) {
-            await this.audioCtx.close();
-            this.audioCtx = null;
+        if (this.audioCtx && this.audioCtx.state === 'running') {
+            await this.audioCtx.suspend();
         }
 
         this.isPlaying = false;
@@ -303,7 +472,7 @@ class ACVoiceChanger {
 
         this.karaokeDisplay.style.display = 'none';
         this.transcriptionInput.style.display = 'block';
-        this.randomQuoteBtn.style.display = 'flex'; // Restore quote button
+        this.randomQuoteBtn.style.display = 'flex';
     }
 
     updatePlayButtonUI() {
@@ -329,8 +498,14 @@ class ACVoiceChanger {
         this.downloadBtn.innerHTML = '<i data-lucide="loader"></i> Rendering...';
         lucide.createIcons();
 
-        const speed = parseFloat(this.speedSlider.value);
-        let calculatedDuration = this.transcribedText.length * speed * 2 + 2.0;
+        // Check buffer for sample mode
+        const mode = this.synthModeSelector.value;
+        if ((mode === 'characters' || mode === 'robot') && !this.isLibraryLoaded) {
+            console.log("Waiting for library...");
+        }
+
+        const speed = this.getDurationPerChar(); // Use consistent getter
+        let calculatedDuration = this.transcribedText.length * speed * 2 + 3.0;
 
         const sampleRate = 44100;
         const offlineCtx = new OfflineAudioContext(1, calculatedDuration * sampleRate, sampleRate);
