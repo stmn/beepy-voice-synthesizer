@@ -92,6 +92,13 @@ class ACVoiceChanger {
 
         // Initial Quote
         this.insertRandomQuote();
+
+        // Robot Interaction
+        this.robotAvatar.style.cursor = 'pointer';
+        this.robotAvatar.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent bubbling if needed
+            this.speakRandomChar();
+        });
     }
 
     setupSliderListener(slider, display, suffix = '') {
@@ -177,12 +184,13 @@ class ACVoiceChanger {
     }
 
     // --- Core Logic ---
-    scheduleSynthesis(context, destinationNode, dryRun = false) {
-        if (!this.transcribedText) return { duration: 0, timeline: [] };
+    scheduleSynthesis(context, destinationNode, dryRun = false, textOverride = null) {
+        const textToProcess = textOverride !== null ? textOverride : this.transcribedText;
+        if (!textToProcess) return { duration: 0, timeline: [] };
 
         const mode = this.synthModeSelector.value;
         const splitMode = this.splitModeSelector.value;
-        const tokens = this.tokenize(this.transcribedText, splitMode);
+        const tokens = this.tokenize(textToProcess, splitMode);
 
         if ((mode === 'characters' || mode === 'robot' || mode === 'demon_sampled') && this.isLibraryLoaded) {
             return this.synthesizeSamples(context, destinationNode, tokens, dryRun, mode);
@@ -543,6 +551,8 @@ class ACVoiceChanger {
                 }
             }
 
+
+
             timeline.push({ type: 'token', text: token.text, startTime: timeOffset, duration: actualDuration });
             timeOffset += actualDuration;
             tokenIndex++;
@@ -559,39 +569,55 @@ class ACVoiceChanger {
         }
     }
 
+    speakRandomChar() {
+        if (this.isPlaying) this.stopPlayback(); // Interrupt current if needed
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const char = letters[Math.floor(Math.random() * letters.length)];
+        // Play without UI takeover
+        this.playText(char, false);
+    }
+
     async startPlayback() {
+        this.handleInput();
+        if (!this.transcribedText) return;
+        this.playText(this.transcribedText, true);
+    }
+
+    async playText(text, isFullPlayback = true) {
         if (!this.audioCtx || this.audioCtx.state === 'closed') {
             this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } else if (this.audioCtx.state === 'suspended') {
             await this.audioCtx.resume();
         }
 
-        this.handleInput();
-        if (!this.transcribedText) return;
-
         this.isPlaying = true;
-        this.updatePlayButtonUI();
 
-        this.transcriptionInput.style.display = 'none';
-        this.randomQuoteBtn.style.display = 'none';
-        this.karaokeDisplay.style.display = 'block';
+        if (isFullPlayback) {
+            this.updatePlayButtonUI();
+            this.transcriptionInput.style.display = 'none';
+            this.randomQuoteBtn.style.display = 'none';
+            this.karaokeDisplay.style.display = 'block';
+        }
 
         // Create a new master gain for this session to allow clean stopping
         this.currentSessionGain = this.audioCtx.createGain();
         this.currentSessionGain.connect(this.audioCtx.destination);
 
-        const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.currentSessionGain);
+        // Pass text override
+        const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.currentSessionGain, false, text);
 
-        this.karaokeDisplay.innerHTML = '';
-        timeline.forEach((item) => {
-            const span = document.createElement('span');
-            span.textContent = item.text;
-            if (item.type === 'token') {
-                span.classList.add('karaoke-token');
-            }
-            this.karaokeDisplay.appendChild(span);
-            item.element = span;
-        });
+        if (isFullPlayback) {
+            this.karaokeDisplay.innerHTML = '';
+            timeline.forEach((item) => {
+                const span = document.createElement('span');
+                span.textContent = item.text;
+                if (item.type === 'token') {
+                    span.classList.add('karaoke-token');
+                }
+                this.karaokeDisplay.appendChild(span);
+                item.element = span;
+            });
+        }
 
         const startTime = this.audioCtx.currentTime;
 
@@ -602,10 +628,10 @@ class ACVoiceChanger {
 
             timeline.forEach(item => {
                 if (elapsedTime >= item.startTime && elapsedTime < item.startTime + item.duration) {
-                    if (item.element) item.element.classList.add('active');
+                    if (isFullPlayback && item.element) item.element.classList.add('active');
                     currentType = item.type;
                 } else {
-                    if (item.element) item.element.classList.remove('active');
+                    if (isFullPlayback && item.element) item.element.classList.remove('active');
                 }
             });
 
@@ -631,12 +657,12 @@ class ACVoiceChanger {
 
         this.playbackTimer = setTimeout(() => {
             if (this.isPlaying) {
-                this.stopPlayback();
+                this.stopPlayback(isFullPlayback);
             }
         }, duration * 1000);
     }
 
-    async stopPlayback() {
+    async stopPlayback(isFullPlayback = true) {
         if (this.playbackTimer) clearTimeout(this.playbackTimer);
         if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
 
@@ -651,7 +677,20 @@ class ACVoiceChanger {
         }
 
         this.isPlaying = false;
-        this.updatePlayButtonUI();
+
+        // Always reset UI if it was full playback, or if we just want to ensure clean state
+        // If we are stopping a 'robot click' (isFullPlayback=false), we don't need to revert UI 
+        // because we never changed it. But if we interrupted full playback with robot click,
+        // we might be in mixed state. 
+        // Simplest is: check DOM state or just force reset if needed.
+
+        // But stopPlayback is called by user Click (Toggle) or Timer.
+        // If called by Timer from robot click -> isFullPlayback=false.
+        // If called by User Click -> they click "Stop" button -> isFullPlayback=true usually?
+        // Actually toggle calls stopPlayback(). 
+        // Refactor stopPlayback to just reset everything to idle.
+
+        this.updatePlayButtonUI(); // Resets button to "Speak!"
 
         this.karaokeDisplay.style.display = 'none';
         this.transcriptionInput.style.display = 'block';
