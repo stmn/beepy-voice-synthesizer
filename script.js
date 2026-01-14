@@ -11,6 +11,7 @@ class ACVoiceChanger {
         this.downloadBtn = document.getElementById('download-btn');
         this.transcriptionInput = document.getElementById('transcription-input');
         this.karaokeDisplay = document.getElementById('karaoke-display');
+        this.randomQuoteBtn = document.getElementById('random-quote-btn'); // New element
 
         this.clockElement = document.getElementById('clock');
 
@@ -29,7 +30,7 @@ class ACVoiceChanger {
         this.pitchDisplay = document.getElementById('val-pitch');
         this.speedDisplay = document.getElementById('val-speed');
         this.timbreDisplay = document.getElementById('val-timbre');
-        this.pauseDisplay = document.getElementById('val-text-pause'); // Renamed ID in HTML
+        this.pauseDisplay = document.getElementById('val-text-pause');
         this.varianceDisplay = document.getElementById('val-variance');
 
         // Init Audio Context
@@ -37,24 +38,35 @@ class ACVoiceChanger {
         this.playbackTimer = null;
         this.animationFrameId = null;
 
+        // Quotes List
+        this.quotes = [
+            "Actions speak louder than words.",
+            "Time is money.",
+            "Practice makes perfect.",
+            "Better late than never.",
+            "The early bird catches the worm.",
+            "Honesty is the best policy.",
+            "When in Rome, do as the Romans do.",
+            "Don’t judge a book by its cover.",
+            "What goes around comes around.",
+            "No pain, no gain."
+        ];
+
         // Bind Events
         this.playAnimaleseBtn.addEventListener('click', () => this.togglePlayback());
         this.downloadBtn.addEventListener('click', () => this.downloadAudio());
 
         this.resetDefaultsBtn.addEventListener('click', () => this.resetDefaults());
 
-        this.transcriptionInput.addEventListener('input', () => {
-            this.transcribedText = this.transcriptionInput.value;
-            const hasText = this.transcribedText.trim().length > 0;
-            this.playAnimaleseBtn.disabled = !hasText;
-            this.downloadBtn.disabled = !hasText;
-        });
+        this.transcriptionInput.addEventListener('input', () => this.handleInput());
+
+        this.randomQuoteBtn.addEventListener('click', () => this.insertRandomQuote());
 
         // Settings Listeners
         this.setupSliderListener(this.pitchSlider, this.pitchDisplay);
         this.setupSliderListener(this.speedSlider, this.speedDisplay);
         this.setupSliderListener(this.timbreSlider, this.timbreDisplay);
-        this.setupSliderListener(this.pauseSlider, this.pauseDisplay, ' ms'); // Add suffix support
+        this.setupSliderListener(this.pauseSlider, this.pauseDisplay, ' ms');
         this.setupSliderListener(this.varianceSlider, this.varianceDisplay);
 
         // Clock
@@ -66,6 +78,19 @@ class ACVoiceChanger {
         slider.addEventListener('input', () => {
             display.textContent = slider.value + suffix;
         });
+    }
+
+    handleInput() {
+        this.transcribedText = this.transcriptionInput.value;
+        const hasText = this.transcribedText.trim().length > 0;
+        this.playAnimaleseBtn.disabled = !hasText;
+        this.downloadBtn.disabled = !hasText;
+    }
+
+    insertRandomQuote() {
+        const randomIndex = Math.floor(Math.random() * this.quotes.length);
+        this.transcriptionInput.value = this.quotes[randomIndex];
+        this.handleInput(); // Trigger input logic to enable buttons
     }
 
     resetDefaults() {
@@ -216,13 +241,14 @@ class ACVoiceChanger {
             await this.audioCtx.resume();
         }
 
-        this.transcribedText = this.transcriptionInput.value;
+        this.handleInput(); // Ensure fresh text
         if (!this.transcribedText) return;
 
         this.isPlaying = true;
         this.updatePlayButtonUI();
 
         this.transcriptionInput.style.display = 'none';
+        this.randomQuoteBtn.style.display = 'none'; // Hide quote button during karaoke
         this.karaokeDisplay.style.display = 'block';
 
         const { duration, timeline } = this.scheduleSynthesis(this.audioCtx, this.audioCtx.destination);
@@ -277,6 +303,7 @@ class ACVoiceChanger {
 
         this.karaokeDisplay.style.display = 'none';
         this.transcriptionInput.style.display = 'block';
+        this.randomQuoteBtn.style.display = 'flex'; // Restore quote button
     }
 
     updatePlayButtonUI() {
@@ -295,7 +322,7 @@ class ACVoiceChanger {
     }
 
     async downloadAudio() {
-        this.transcribedText = this.transcriptionInput.value;
+        this.handleInput();
         if (!this.transcribedText) return;
 
         const originalText = this.downloadBtn.innerHTML;

@@ -96,6 +96,34 @@ body {
     border: 2px solid white;
     display: flex;
     flex-direction: column;
+    position: relative;
+    /* For timestamp/random button */
+}
+
+.icon-only-button {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ccc;
+    /* Subtle by default */
+    padding: 5px;
+    transition: color 0.2s, transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-only-button:hover {
+    color: var(--ac-blue);
+    transform: scale(1.1);
+}
+
+.icon-only-button i {
+    width: 16px;
+    height: 16px;
 }
 
 .settings-area {
@@ -333,6 +361,12 @@ body {
     color: #999;
 }
 
+.tooltip-container:hover .tooltip-popup,
+.icon-only-button:hover .tooltip-popup {
+    visibility: visible;
+    opacity: 1;
+}
+
 .tooltip-container {
     position: relative;
     display: flex;
@@ -374,7 +408,49 @@ body {
     border-color: var(--ac-brown) transparent transparent transparent;
 }
 
-.tooltip-container:hover .tooltip-popup {
-    visibility: visible;
-    opacity: 1;
+/* Tooltip Left Modifier (Side) */
+/* Tooltip Left Modifier (Side) */
+.tooltip-popup.tooltip-left {
+    left: auto;
+    right: 100%;
+    /* Move to left of container */
+    top: 50%;
+    bottom: auto;
+    /* Reset bottom */
+    transform: translateY(-50%);
+    /* Center vertically */
+    margin-right: 10px;
+    /* Spacing */
+    width: max-content;
+    max-width: 200px;
+    font-size: 11px;
+    /* Explicitly set as requested */
+}
+
+.tooltip-popup.tooltip-left::after {
+    left: 100%;
+    /* Arrow on right side */
+    top: 50%;
+    margin-top: -5px;
+    margin-left: -1px;
+    /* Overlap by 1px to fix gap */
+    border-color: transparent transparent transparent var(--ac-brown);
+    /* Point right */
+    border-width: 5px;
+}
+
+/* Tooltip Right Anchor Modifier */
+.tooltip-popup.anchor-right {
+    left: auto;
+    right: -10px;
+    transform: none;
+    width: max-content;
+    max-width: 200px;
+}
+
+.tooltip-popup.anchor-right::after {
+    left: auto;
+    right: 15px;
+    /* Align arrow with the button center roughly */
+    margin-left: 0;
 }
