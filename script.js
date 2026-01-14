@@ -166,7 +166,7 @@ class ACVoiceChanger {
         if ((mode === 'characters' || mode === 'robot') && this.isLibraryLoaded) {
             return this.synthesizeSamples(context, destinationNode, tokens, dryRun, mode);
         } else {
-            return this.synthesizeOscillators(context, destinationNode, tokens, dryRun);
+            return this.synthesizeOscillators(context, destinationNode, tokens, dryRun, mode);
         }
     }
 
@@ -212,7 +212,7 @@ class ACVoiceChanger {
         return 0.25 - val;
     }
 
-    synthesizeOscillators(context, destinationNode, tokens, dryRun) {
+    synthesizeOscillators(context, destinationNode, tokens, dryRun, mode) {
         let basePitch = parseInt(this.pitchSlider.value, 10);
         const speed = this.getDurationPerChar(); // Now correctly "Duration"
         const timbre = parseInt(this.timbreSlider.value, 10);
@@ -250,11 +250,36 @@ class ACVoiceChanger {
                 filter.connect(gainNode);
                 gainNode.connect(destinationNode);
 
-                osc.type = 'sawtooth';
+                // --- Mode Configuration ---
+                let oscType = 'sawtooth';
+                let attackTime = 0.03;
+                let releaseTime = 0.05;
+                let sustainLevel = 0.4;
+
+                if (mode === 'retro') {
+                    oscType = 'square';
+                    attackTime = 0.005; // Snappy
+                    releaseTime = 0.005;
+                    sustainLevel = 0.25; // Square is loud
+                } else if (mode === 'alien') {
+                    oscType = 'triangle';
+                    attackTime = 0.01;
+                    releaseTime = 0.1;
+                }
+
+                osc.type = oscType;
                 const charCode = tokenLower.charCodeAt(0);
                 const pitchOffset = ((charCode - 97) % 6) * pitchVariance;
                 const intonation = Math.sin(tokenIndex * 0.5) * pitchVariance;
-                osc.frequency.setValueAtTime(basePitch + pitchOffset + intonation, now + timeOffset);
+
+                let frequency = basePitch + pitchOffset + intonation;
+                osc.frequency.setValueAtTime(frequency, now + timeOffset);
+
+                // Alien vibrato
+                if (mode === 'alien') {
+                    osc.frequency.linearRampToValueAtTime(frequency + (pitchVariance * 2), now + timeOffset + (actualDuration * 0.5));
+                    osc.frequency.linearRampToValueAtTime(frequency, now + timeOffset + actualDuration);
+                }
 
                 filter.type = 'lowpass';
                 filter.Q.value = 5;
@@ -264,13 +289,24 @@ class ACVoiceChanger {
                 filter.frequency.linearRampToValueAtTime(filterFreq + 300, now + timeOffset + (actualDuration * 0.5));
 
                 const startTime = now + timeOffset;
+
+                // --- Envelope ---
                 gainNode.gain.setValueAtTime(0, startTime);
-                gainNode.gain.linearRampToValueAtTime(0.4, startTime + 0.03);
-                gainNode.gain.setValueAtTime(0.4, startTime + actualDuration * 0.8);
-                gainNode.gain.linearRampToValueAtTime(0, startTime + actualDuration + 0.05);
+
+                if (mode === 'retro') {
+                    // Boxy envelope
+                    gainNode.gain.setValueAtTime(sustainLevel, startTime + attackTime);
+                    gainNode.gain.setValueAtTime(sustainLevel, startTime + actualDuration - releaseTime);
+                } else {
+                    // Ramp envelope
+                    gainNode.gain.linearRampToValueAtTime(sustainLevel, startTime + attackTime);
+                    gainNode.gain.setValueAtTime(sustainLevel, startTime + actualDuration * 0.8);
+                }
+
+                gainNode.gain.linearRampToValueAtTime(0, startTime + actualDuration + releaseTime);
 
                 osc.start(startTime);
-                osc.stop(startTime + actualDuration + 0.1);
+                osc.stop(startTime + actualDuration + releaseTime + 0.1);
             }
 
             timeline.push({ type: 'token', text: token.text, startTime: timeOffset, duration: actualDuration });
