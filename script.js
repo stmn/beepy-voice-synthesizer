@@ -30,6 +30,7 @@ class ACVoiceChanger {
         this.pauseSlider = document.getElementById('pause-slider');
         this.varianceSlider = document.getElementById('variance-slider');
         this.synthModeSelector = document.getElementById('synth-mode-selector');
+        this.splitModeSelector = document.getElementById('split-mode-selector');
 
         // Settings Displays
         this.pitchDisplay = document.getElementById('val-pitch');
@@ -81,6 +82,9 @@ class ACVoiceChanger {
         this.setupSliderListener(this.timbreSlider, this.timbreDisplay);
         this.setupSliderListener(this.pauseSlider, this.pauseDisplay, ' ms');
         this.setupSliderListener(this.varianceSlider, this.varianceDisplay);
+
+        this.synthModeSelector.addEventListener('change', () => this.handleSynthModeChange());
+        this.handleSynthModeChange(); // Init state
 
         // Clock
         this.updateClock();
@@ -148,7 +152,8 @@ class ACVoiceChanger {
             timbre: 400,
             pause: 150,
             variance: 50,
-            mode: 'syllables'
+            mode: 'syllables',
+            splitMode: 'syllables'
         };
 
         this.pitchSlider.value = defaults.pitch;
@@ -167,6 +172,8 @@ class ACVoiceChanger {
         this.varianceDisplay.textContent = defaults.variance;
 
         this.synthModeSelector.value = defaults.mode;
+        this.splitModeSelector.value = defaults.splitMode;
+        this.handleSynthModeChange();
     }
 
     // --- Core Logic ---
@@ -174,7 +181,8 @@ class ACVoiceChanger {
         if (!this.transcribedText) return { duration: 0, timeline: [] };
 
         const mode = this.synthModeSelector.value;
-        const tokens = this.tokenize(this.transcribedText, mode);
+        const splitMode = this.splitModeSelector.value;
+        const tokens = this.tokenize(this.transcribedText, splitMode);
 
         if ((mode === 'characters' || mode === 'robot' || mode === 'demon_sampled') && this.isLibraryLoaded) {
             return this.synthesizeSamples(context, destinationNode, tokens, dryRun, mode);
@@ -183,10 +191,19 @@ class ACVoiceChanger {
         }
     }
 
-    tokenize(text, mode) {
+    handleSynthModeChange() {
+        const mode = this.synthModeSelector.value;
+        if (mode === 'characters' || mode === 'demon_sampled') {
+            this.splitModeSelector.value = 'chars';
+            this.splitModeSelector.disabled = true;
+        } else {
+            this.splitModeSelector.disabled = false;
+        }
+    }
+
+    tokenize(text, splitMode) {
         let i = 0;
         const tokens = [];
-        const useSyllables = (mode !== 'characters');
 
         while (i < text.length) {
             const char = text[i];
@@ -199,17 +216,33 @@ class ACVoiceChanger {
                 i++; continue;
             }
 
-            if (useSyllables) {
+            // --- Split Logic ---
+            let tokenText = char;
+
+            if (splitMode === 'words') {
+                // Grab all continuous alphanumerics
                 const remaining = text.slice(i);
-                const match = remaining.match(/^([^aeiouy\s]*[aeiouy0-9]+|[^aeiouy\s]+)/i);
-                let tokenText = char;
+                const match = remaining.match(/^[a-z0-9]+/i);
                 if (match) tokenText = match[0];
-                tokens.push({ type: 'token', text: tokenText });
-                i += tokenText.length;
+
+            } else if (splitMode === 'syllables') {
+                // Existing syllable logic
+                const remaining = text.slice(i);
+                // Regex for syllable approximation:
+                // 1. One or more non-vowels (optional)
+                // 2. One or more vowels/numbers
+                // OR: Just non-vowels if that's all that's left? 
+                // The original regex was: /^([^aeiouy\s]*[aeiouy0-9]+|[^aeiouy\s]+)/i
+                const match = remaining.match(/^([^aeiouy\s]*[aeiouy0-9]+|[^aeiouy\s]+)/i);
+                if (match) tokenText = match[0];
+
             } else {
-                tokens.push({ type: 'token', text: char });
-                i++;
+                // 'chars' -> just single char, already set by default
+                tokenText = char;
             }
+
+            tokens.push({ type: 'token', text: tokenText });
+            i += tokenText.length;
         }
         return tokens;
     }
