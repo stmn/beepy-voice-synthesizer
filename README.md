@@ -21,3 +21,11 @@ Create your own cute vocal synth speech! Use this tool to synthesize text into a
 2.  **Adjust** the settings (Pitch, Speed, etc.) to customize the voice. 
 3.  Click **Speak!** to listen.
 4.  Click **Download** to save the audio file.
+
+## 📄 License & Credits
+
+This project leverages code and assets from [animalese.js](https://github.com/Acedio/animalese.js) by [Acedio](https://github.com/Acedio).
+
+*   **Logic**: The synthesis logic is adapted from `animalese.js`.
+*   **Audio**: The `animalese.wav` library file is provided by the `animalese.js` repository.
+*   **License**: `animalese.js` is licensed under the MIT License.
