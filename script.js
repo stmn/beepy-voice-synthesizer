@@ -265,6 +265,9 @@ class ACVoiceChanger {
                     oscType = 'triangle';
                     attackTime = 0.01;
                     releaseTime = 0.1;
+                } else if (mode === 'beast') {
+                    oscType = 'sawtooth';
+                    attackTime = 0.05;
                 }
 
                 osc.type = oscType;
@@ -274,6 +277,17 @@ class ACVoiceChanger {
 
                 let frequency = basePitch + pitchOffset + intonation;
                 osc.frequency.setValueAtTime(frequency, now + timeOffset);
+
+                // Beast Growl (Frequency Jitter)
+                if (mode === 'beast') {
+                    const jitterAmount = 50;
+                    // Basic jitter simulation using linearRamp. 
+                    // True noise needs a buffer, but rapid ramps work for "roughness"
+                    for (let t = 0; t < actualDuration; t += 0.02) {
+                        const jitter = (Math.random() - 0.5) * jitterAmount;
+                        osc.frequency.setValueAtTime(frequency + jitter, now + timeOffset + t);
+                    }
+                }
 
                 // Alien vibrato
                 if (mode === 'alien') {
