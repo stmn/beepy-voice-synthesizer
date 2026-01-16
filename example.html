@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beepy Voice Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-hover: #5649c0;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --text-color: #2d3436;
+            --card-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: 'Varela Round', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 3rem 4rem;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            color: var(--primary);
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-main {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.5rem;
+            font-family: inherit;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-main:hover {
+            background-color: var(--primary-hover);
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+        }
+
+        .btn-main:active {
+            transform: scale(0.98);
+        }
+
+        .btn-main:disabled {
+            background-color: #b2bec3;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #text-placeholder {
+            margin-top: 3rem;
+            min-height: 4rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #text-display {
+            font-size: 2rem;
+            line-height: 1.4;
+            color: #2d3436;
+            font-weight: 500;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 2.5rem;
+            background-color: var(--primary);
+            margin-left: 5px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+            opacity: 0;
+        }
+
+        .cursor.typing {
+            opacity: 1;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .settings-hint {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #636e72;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Beepy Voice Demo</h1>
+
+        <button id="speak-btn" class="btn-main">
+            <span>🔊 Speak!</span>
+        </button>
+
+        <p class="settings-hint">Click button to hear synthesis</p>
+
+        <div id="text-placeholder">
+            <span id="text-display"></span><span id="cursor" class="cursor"></span>
+        </div>
+    </div>
+
+    <!-- Include the library -->
+    <script src="beepy-voice-synth.js"></script>
+
+    <script>
+        window.onload = function () {
+            // Initialize synthesizer
+            const synth = BeepyVoiceSynth({
+                mode: 'characters', // Cute animalese style
+                pitch: 750,        // Slightly higher pitch
+                speed: 0.12,       // Bit faster
+                variance: 50
+            });
+
+            const btn = document.getElementById('speak-btn');
+            const display = document.getElementById('text-display');
+            const cursor = document.getElementById('cursor');
+
+            const phrases = [
+                "Hello! Welcome to the Beepy Voice Synthesizer.",
+                "This API is super easy to use!",
+                "Create your own cute robot voices.",
+                "Build amazing games with this tool!",
+                "Make sure to star the repo!"
+            ];
+
+            let isPlaying = false;
+
+            btn.onclick = async function () {
+                if (isPlaying) return;
+
+                // Pick random phrase
+                const text = phrases[Math.floor(Math.random() * phrases.length)];
+
+                isPlaying = true;
+                btn.disabled = true;
+                display.textContent = '';
+                cursor.classList.add('typing');
+
+                // Get karaoke parts
+                const parts = synth.karaoke(text);
+
+                for (const part of parts) {
+                    display.textContent += part.text();
+                    // Just small visual emphasis
+                    btn.style.transform = `scale(${1 + Math.random() * 0.05})`;
+                    await part.speak();
+                }
+
+                // Reset
+                btn.style.transform = '';
+                cursor.classList.remove('typing');
+                btn.disabled = false;
+                isPlaying = false;
+            };
+        };
+    </script>
+</body>
+
+</html>

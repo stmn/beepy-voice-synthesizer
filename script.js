@@ -906,7 +906,7 @@ class ACVoiceChanger {
     }
 
     preloadRobotImages() {
-        ['robot1.webp', 'robot2.webp', 'robot3.webp'].forEach(src => {
+        ['assets/robot1.webp', 'assets/robot2.webp', 'assets/robot3.webp'].forEach(src => {
             const img = new Image();
             img.src = src;
         });
