@@ -12,29 +12,30 @@
             --primary-hover: #5649c0;
             --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             --text-color: #2d3436;
-            --card-bg: rgba(255, 255, 255, 0.9);
+            --card-bg: rgba(255, 255, 255, 0.95);
         }
 
         body {
             font-family: 'Varela Round', sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 2rem;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             background: var(--bg-gradient);
             color: var(--text-color);
+            box-sizing: border-box;
         }
 
         .container {
             background: var(--card-bg);
-            padding: 3rem 4rem;
+            padding: 2.5rem 3rem;
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             text-align: center;
-            max-width: 600px;
-            width: 90%;
+            max-width: 800px;
+            width: 100%;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.5);
             transition: transform 0.3s ease;
@@ -51,11 +52,57 @@
             text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.05);
         }
 
+        /* Controls Grid */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+            text-align: left;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #636e72;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        select {
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            border: 2px solid #dfe6e9;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--text-color);
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
         .btn-main {
             background-color: var(--primary);
             color: white;
             border: none;
-            padding: 1rem 3rem;
+            padding: 1rem 4rem;
             font-size: 1.5rem;
             font-family: inherit;
             border-radius: 50px;
@@ -65,6 +112,7 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            margin-bottom: 1rem;
         }
 
         .btn-main:hover {
@@ -85,15 +133,19 @@
         }
 
         #text-placeholder {
-            margin-top: 3rem;
+            margin-top: 2rem;
             min-height: 4rem;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            padding: 1.5rem;
             display: flex;
             justify-content: center;
             align-items: center;
+            border: 1px dashed #b2bec3;
         }
 
         #text-display {
-            font-size: 2rem;
+            font-size: 1.8rem;
             line-height: 1.4;
             color: #2d3436;
             font-weight: 500;
@@ -101,8 +153,8 @@
 
         .cursor {
             display: inline-block;
-            width: 10px;
-            height: 2.5rem;
+            width: 8px;
+            height: 2.2rem;
             background-color: var(--primary);
             margin-left: 5px;
             animation: blink 1s infinite;
@@ -126,11 +178,11 @@
             }
         }
 
-        .settings-hint {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: #636e72;
-            opacity: 0.8;
+        .value-badge {
+            background: #dfe6e9;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.8rem;
         }
     </style>
 </head>
@@ -140,46 +192,122 @@
     <div class="container">
         <h1>Beepy Voice Demo</h1>
 
+        <div class="controls-grid">
+            <!-- Mode -->
+            <div class="control-group">
+                <label for="mode-select">Voice Style</label>
+                <select id="mode-select">
+                    <option value="characters" selected>Animalese (Cute)</option>
+                    <option value="syllables">Default (Syllables)</option>
+                    <option value="demon_sampled">Demon</option>
+                    <option value="robot">Robot</option>
+                    <option value="retro">Retro</option>
+                    <option value="alien">Alien</option>
+                    <option value="beast">Beast</option>
+                    <option value="chorus">Chorus</option>
+                    <option value="crystal">Crystal</option>
+                </select>
+            </div>
+
+            <!-- Pitch -->
+            <div class="control-group">
+                <label for="pitch-range">Pitch <span id="pitch-val" class="value-badge">750</span></label>
+                <input type="range" id="pitch-range" min="200" max="1400" value="750">
+            </div>
+
+            <!-- Speed -->
+            <div class="control-group">
+                <label for="speed-range">Speed <span id="speed-val" class="value-badge">0.12</span></label>
+                <input type="range" id="speed-range" min="0.05" max="0.22" step="0.01" value="0.12">
+            </div>
+
+            <!-- Variance -->
+            <div class="control-group">
+                <label for="variance-range">Variance <span id="variance-val" class="value-badge">50</span></label>
+                <input type="range" id="variance-range" min="0" max="150" value="50">
+            </div>
+
+            <!-- Timbre -->
+            <div class="control-group">
+                <label for="timbre-range">Timbre <span id="timbre-val" class="value-badge">400</span></label>
+                <input type="range" id="timbre-range" min="100" max="2000" value="400">
+            </div>
+
+            <!-- Pause -->
+            <div class="control-group">
+                <label for="pause-range">Pause (ms) <span id="pause-val" class="value-badge">150</span></label>
+                <input type="range" id="pause-range" min="50" max="500" value="150">
+            </div>
+        </div>
+
         <button id="speak-btn" class="btn-main">
             <span>🔊 Speak!</span>
         </button>
 
-        <p class="settings-hint">Click button to hear synthesis</p>
-
         <div id="text-placeholder">
-            <span id="text-display"></span><span id="cursor" class="cursor"></span>
+            <span id="text-display">Click speak...</span><span id="cursor" class="cursor"></span>
         </div>
     </div>
 
     <!-- Include the library -->
-    <script src="beepy-voice-synth.js"></script>
+    <script src="src/beepy-voice-synth.js"></script>
 
     <script>
         window.onload = function () {
-            // Initialize synthesizer
-            const synth = BeepyVoiceSynth({
-                mode: 'characters', // Cute animalese style
-                pitch: 750,        // Slightly higher pitch
-                speed: 0.12,       // Bit faster
-                variance: 50
-            });
-
+            // UI Elements
             const btn = document.getElementById('speak-btn');
             const display = document.getElementById('text-display');
             const cursor = document.getElementById('cursor');
+
+            // Inputs
+            const modeSelect = document.getElementById('mode-select');
+            const pitchRange = document.getElementById('pitch-range');
+            const speedRange = document.getElementById('speed-range');
+            const varianceRange = document.getElementById('variance-range');
+            const timbreRange = document.getElementById('timbre-range');
+            const pauseRange = document.getElementById('pause-range');
+
+            // Values
+            const pitchVal = document.getElementById('pitch-val');
+            const speedVal = document.getElementById('speed-val');
+            const varianceVal = document.getElementById('variance-val');
+            const timbreVal = document.getElementById('timbre-val');
+            const pauseVal = document.getElementById('pause-val');
+
+            // Live value updates
+            pitchRange.oninput = () => pitchVal.textContent = pitchRange.value;
+            speedRange.oninput = () => speedVal.textContent = speedRange.value;
+            varianceRange.oninput = () => varianceVal.textContent = varianceRange.value;
+            timbreRange.oninput = () => timbreVal.textContent = timbreRange.value;
+            pauseRange.oninput = () => pauseVal.textContent = pauseRange.value;
 
             const phrases = [
                 "Hello! Welcome to the Beepy Voice Synthesizer.",
                 "This API is super easy to use!",
                 "Create your own cute robot voices.",
                 "Build amazing games with this tool!",
-                "Make sure to star the repo!"
+                "Make sure to star the repo!",
+                "Look at all these sliders!",
+                "Try the Demon voice if you dare."
             ];
 
             let isPlaying = false;
 
             btn.onclick = async function () {
                 if (isPlaying) return;
+
+                // Initialize synthesizer with current values
+                // We create a new instance each time to pick up all config changes easily
+                // Optimally we'd just update config, but this is a demo.
+                const synth = BeepyVoiceSynth({
+                    mode: modeSelect.value,
+                    pitch: parseInt(pitchRange.value),
+                    speed: parseFloat(speedRange.value),
+                    variance: parseInt(varianceRange.value),
+                    timbre: parseInt(timbreRange.value),
+                    pause: parseInt(pauseRange.value),
+                    basePath: 'src/'
+                });
 
                 // Pick random phrase
                 const text = phrases[Math.floor(Math.random() * phrases.length)];
@@ -189,14 +317,19 @@
                 display.textContent = '';
                 cursor.classList.add('typing');
 
-                // Get karaoke parts
-                const parts = synth.karaoke(text);
+                try {
+                    // Get karaoke parts
+                    const parts = synth.karaoke(text);
 
-                for (const part of parts) {
-                    display.textContent += part.text();
-                    // Just small visual emphasis
-                    btn.style.transform = `scale(${1 + Math.random() * 0.05})`;
-                    await part.speak();
+                    for (const part of parts) {
+                        display.textContent += part.text();
+                        // Just small visual emphasis
+                        btn.style.transform = `scale(${1 + Math.random() * 0.05})`;
+                        await part.speak();
+                    }
+                } catch (e) {
+                    console.error(e);
+                    display.textContent = "Error: " + e.message;
                 }
 
                 // Reset

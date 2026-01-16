@@ -33,7 +33,8 @@ The `beepy-voice-synth.js` library provides a simple API for integrating voice s
 Include the script in your HTML:
 
 ```html
-<script src="beepy-voice-synth.js"></script>
+
+<script src="src/beepy-voice-synth.js"></script>
 ```
 
 You will also need the audio library files (`animalese.wav`, `demon.wav`) in the same directory.
@@ -130,34 +131,34 @@ const audioBuffer = await synth.renderToBuffer('Hello world!')
     <title>My Game</title>
 </head>
 <body>
-    <button id="speak">Speak!</button>
-    <div id="text-display"></div>
+<button id="speak">Speak!</button>
+<div id="text-display"></div>
 
-    <script src="beepy-voice-synth.js"></script>
-    <script>
-        // Wait for page to fully load before using the synth
-        window.onload = function() {
-            const synth = BeepyVoiceSynth({
-                mode: 'characters',
-                pitch: 800
-            })
+<script src="src/beepy-voice-synth.js"></script>
+<script>
+    // Wait for page to fully load before using the synth
+    window.onload = function () {
+        const synth = BeepyVoiceSynth({
+            mode: 'characters',
+            pitch: 800
+        })
 
-            document.getElementById('speak').onclick = async function() {
-                const text = 'Welcome to my game!'
-                const parts = synth.karaoke(text)
-                const display = document.getElementById('text-display')
+        document.getElementById('speak').onclick = async function () {
+            const text = 'Welcome to my game!'
+            const parts = synth.karaoke(text)
+            const display = document.getElementById('text-display')
 
-                // Clear display before starting
-                display.textContent = ''
+            // Clear display before starting
+            display.textContent = ''
 
-                // Speak each part and append text progressively
-                for (const part of parts) {
-                    display.textContent += part.text()
-                    await part.speak()
-                }
+            // Speak each part and append text progressively
+            for (const part of parts) {
+                display.textContent += part.text()
+                await part.speak()
             }
         }
-    </script>
+    }
+</script>
 </body>
 </html>
 ```
