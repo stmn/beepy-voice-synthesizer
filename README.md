@@ -1,6 +1,6 @@
 # Beepy Voice Synthesizer
 
-Turn any text into a cute, rhythmic "beepy" voice (Animal Crossing style) right in the browser. Zero dependencies, one script tag, built on the Web Audio API.
+Turn any text into a cute, rhythmic "beepy" voice right in the browser. Zero dependencies, one script tag, built on the Web Audio API.
 
 - **Live app:** https://stmn.github.io/beepy-voice-synthesizer/
 - **API demo:** https://stmn.github.io/beepy-voice-synthesizer/example.html

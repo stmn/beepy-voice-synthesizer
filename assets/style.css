@@ -29,7 +29,7 @@ body {
     position: relative;
 }
 
-.nook-phone {
+.phone-frame {
     background-color: var(--ac-cream);
     width: 750px;
     /* Wider for settings and download btn */
