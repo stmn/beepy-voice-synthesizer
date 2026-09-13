@@ -12,6 +12,16 @@
  *   }
  */
 
+// Directory this script was loaded from. Used as the default basePath so the
+// audio libraries (animalese.wav, demon.wav) are resolved next to the script
+// without any configuration. Must be read at load time - document.currentScript
+// is only set while the script is initially executing.
+const BEEPY_SCRIPT_BASE_PATH = (() => {
+    if (typeof document === 'undefined') return './';
+    const src = document.currentScript && document.currentScript.src;
+    return src ? src.slice(0, src.lastIndexOf('/') + 1) : './';
+})();
+
 class BeepyVoiceSynthCore {
     constructor(config = {}) {
         // Default values matching the form defaults in script.js
@@ -23,7 +33,7 @@ class BeepyVoiceSynthCore {
             variance: config.variance ?? 50,
             mode: config.mode ?? 'syllables',
             splitMode: config.splitMode ?? 'syllables',
-            basePath: config.basePath ?? './'
+            basePath: config.basePath ?? BEEPY_SCRIPT_BASE_PATH
         };
 
         this.audioCtx = null;

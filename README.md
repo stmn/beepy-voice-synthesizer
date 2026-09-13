@@ -1,170 +1,86 @@
-# 🍃 Cute Beepy Voice Synthesis
+# Beepy Voice Synthesizer
 
-Create your own cute vocal synth speech! Use this tool to synthesize text into a charming, rhythmic "beepy" voice style.
+Turn any text into a cute, rhythmic "beepy" voice (Animal Crossing style) right in the browser. Zero dependencies, one script tag, built on the Web Audio API.
 
-## ✨ Features
+- **Live app:** https://stmn.github.io/beepy-voice-synthesizer/
+- **API demo:** https://stmn.github.io/beepy-voice-synthesizer/example.html
 
-*   **Vocal Synthesis**: Type any text and hear it spoken in a unique synthesized voice! The engine breaks down words into syllables, making it sound rhythmic and natural.
-*   **Full Customization**:
-    *   **Pitch**: Go from a deep, low voice to a squeaky, high-pitched tone.
-    *   **Speed**: Adjust the speaking rate to your liking.
-    *   **Pitch Variance**: Control how "expressive" and chaotic the pitch jumps are.
-    *   **Timbre**: Change the character of the sound from muffled to bright.
-    *   **Synthesis Style**: Switch between different voice textures (e.g., Default, Robot, Alien, and more).
-    *   **Split Mode**: Choose how text is chunked for synthesis (Syllables, Letters, or Words).
-*   **Export Timing**: Export a JSON file containing precise timing data, useful for syncing subtitles or animations in external projects.
-*   **Download as WAV**: Save your creations to use in memes, videos, content creation, or just for fun.
+![Beepy Voice Synthesizer app](assets/screenshot-app.png)
 
-## 🛠️ How to Use
-
-1.  **Type** your message in the text box.
-2.  **Adjust** the settings (Pitch, Speed, etc.) to customize the voice. 
-3.  Click **Speak!** to listen.
-4.  Click **Download** to save the audio file.
-
----
-
-## 🎮 JavaScript API
-
-The `beepy-voice-synth.js` library provides a simple API for integrating voice synthesis into your games and projects.
-
-### Installation
-
-Include the script in your HTML:
+## Quick start
 
 ```html
+<button id="speak">Speak</button>
 
-<script src="src/beepy-voice-synth.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/stmn/beepy-voice-synthesizer@main/src/beepy-voice-synth.js"></script>
+<script>
+    const synth = BeepyVoiceSynth()
+    document.getElementById('speak').onclick = () => synth.speak('Hello world!')
+</script>
 ```
 
-You will also need the audio library files (`animalese.wav`, `demon.wav`) in the same directory.
+That's it. The audio samples are loaded automatically from the same location as the script.
 
-### Basic Usage
+To self-host, copy the `src/` folder (script + two `.wav` files) into your project and point the script tag at it.
 
-```javascript
-// Create a synth instance with default settings
-const synth = BeepyVoiceSynth()
+## Options
 
-// Speak some text
-await synth.speak('Hello world!')
-```
-
-### Configuration Options
-
-```javascript
+```js
 const synth = BeepyVoiceSynth({
-    pitch: 600,           // 200-1200, voice pitch
-    speed: 0.14,          // 0.05-0.2, speaking speed
-    timbre: 400,          // 100-2000, voice brightness
-    pause: 150,           // 50-500 (ms), pause after punctuation
-    variance: 50,         // 0-150, pitch variance
-    mode: 'syllables',    // synthesis mode (see below)
-    splitMode: 'syllables', // text splitting mode
-    basePath: './'        // path to audio files
+    mode: 'characters',      // voice style, see below
+    pitch: 600,              // 200-1200
+    speed: 0.14,             // 0.05-0.2
+    variance: 50,            // 0-150, how much the pitch jumps around
+    timbre: 400,             // 100-2000, muffled to bright
+    pause: 150,              // ms of silence after . , ! ?
+    splitMode: 'syllables',  // 'syllables' | 'chars' | 'words'
 })
+
+synth.setConfig({ pitch: 900 })  // change anything later
 ```
 
-**Synthesis Modes:**
-- `syllables` - Default oscillator-based mode
-- `characters` - Animalese-style using audio samples
-- `demon_sampled` - Demon voice using samples
-- `robot` - Robot voice with looping samples
-- `retro` - Retro square wave
-- `alien` - Alien with vibrato
-- `beast` - Growly beast voice
-- `chorus` - Chorus effect
-- `crystal` - FM synthesis bell-like
+**Voice styles (`mode`):** `syllables` (default), `characters` (Animalese), `robot`, `demon_sampled`, `retro`, `alien`, `beast`, `chorus`, `crystal`
 
-**Split Modes:**
-- `chars` - Split by individual characters
-- `syllables` - Split by syllables (default)
-- `words` - Split by whole words
+## API
 
-### Karaoke Mode
+```js
+await synth.speak(text)                    // play the whole text, resolves when done
 
-Get individual parts for karaoke-style highlighting:
-
-```javascript
-const synth = BeepyVoiceSynth({ mode: 'characters' })
-
-const parts = synth.karaoke('Hello world!')
-
+const parts = synth.karaoke(text)          // one part per syllable / space / punctuation
 for (const part of parts) {
-    console.log(part.text())     // Get the text
-    console.log(part.type())     // 'token', 'space', or 'punct'
-    console.log(part.startTime)  // Start time in seconds
-    console.log(part.duration)   // Duration in seconds
-    await part.speak()           // Speak this part only
+    part.text()       // 'Hel'
+    part.type()       // 'token' | 'space' | 'punct'
+    part.startTime    // seconds
+    part.duration     // seconds
+    await part.speak()
+}
+
+const { duration, timeline } = synth.getTimeline(text)   // timing only, no audio
+const buffer = await synth.renderToBuffer(text)          // AudioBuffer, e.g. for WAV export
+```
+
+### Karaoke example
+
+```js
+const synth = BeepyVoiceSynth({ mode: 'characters' })
+const el = document.getElementById('text')
+
+async function sayIt(text) {
+    el.textContent = ''
+    for (const part of synth.karaoke(text)) {
+        el.textContent += part.text()
+        await part.speak()
+    }
 }
 ```
 
-### Timeline Export
+![API demo](assets/screenshot-demo.png)
 
-Get timing data for synchronization:
+## Notes
 
-```javascript
-const synth = BeepyVoiceSynth()
-const { duration, timeline } = synth.getTimeline('Hello world!')
+- Browsers require a user gesture (click, key press) before audio can play. Call `speak()` from an event handler.
+- With bundlers (`import`/`require`), pass `basePath` pointing to the folder that holds `animalese.wav` and `demon.wav`.
 
-console.log('Total duration:', duration)
-timeline.forEach(item => {
-    console.log(`${item.text} at ${item.startTime}s for ${item.duration}s`)
-})
-```
+## Credits
 
-### Render to Buffer
-
-Render audio for downloading or further processing:
-
-```javascript
-const synth = BeepyVoiceSynth()
-const audioBuffer = await synth.renderToBuffer('Hello world!')
-// audioBuffer is an AudioBuffer you can process or convert to WAV
-```
-
-### Complete Example
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>My Game</title>
-</head>
-<body>
-<button id="speak">Speak!</button>
-<div id="text-display"></div>
-
-<script src="src/beepy-voice-synth.js"></script>
-<script>
-    // Wait for page to fully load before using the synth
-    window.onload = function () {
-        const synth = BeepyVoiceSynth({
-            mode: 'characters',
-            pitch: 800
-        })
-
-        document.getElementById('speak').onclick = async function () {
-            const text = 'Welcome to my game!'
-            const parts = synth.karaoke(text)
-            const display = document.getElementById('text-display')
-
-            // Clear display before starting
-            display.textContent = ''
-
-            // Speak each part and append text progressively
-            for (const part of parts) {
-                display.textContent += part.text()
-                await part.speak()
-            }
-        }
-    }
-</script>
-</body>
-</html>
-```
-
----
-
-## 📄 License & Credits
-
-This project leverages code and assets from [animalese.js](https://github.com/Acedio/animalese.js) by [Acedio](https://github.com/Acedio).
+Animalese samples and the original synthesis idea come from [animalese.js](https://github.com/Acedio/animalese.js) by [Acedio](https://github.com/Acedio) (MIT).

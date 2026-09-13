@@ -640,14 +640,14 @@ class ACVoiceChanger {
                 // Talking state: Alternate robot2 and robot3
                 // Use a slower cadence than frames, e.g. every 100ms
                 const frameIndex = Math.floor(Date.now() / 150) % 2;
-                const targetSrc = frameIndex === 0 ? '/assets/robot2.webp' : '/assets/robot3.webp';
+                const targetSrc = frameIndex === 0 ? 'assets/robot2.webp' : 'assets/robot3.webp';
                 if (this.robotAvatar.getAttribute('src') !== targetSrc) {
                     this.robotAvatar.src = targetSrc;
                 }
             } else {
                 // Pause/Space/Idle state
-                if (this.robotAvatar.getAttribute('src') !== '/assets/robot1.webp') {
-                    this.robotAvatar.src = '/assets/robot1.webp';
+                if (this.robotAvatar.getAttribute('src') !== 'assets/robot1.webp') {
+                    this.robotAvatar.src = 'assets/robot1.webp';
                 }
             }
 
@@ -696,7 +696,7 @@ class ACVoiceChanger {
         this.transcriptionInput.style.display = 'block';
         this.randomQuoteBtn.style.display = 'flex';
 
-        if (this.robotAvatar) this.robotAvatar.src = '/assets/robot1.webp';
+        if (this.robotAvatar) this.robotAvatar.src = 'assets/robot1.webp';
     }
 
     updatePlayButtonUI() {
@@ -906,7 +906,7 @@ class ACVoiceChanger {
     }
 
     preloadRobotImages() {
-        ['/assets/robot1.webp', '/assets/robot2.webp', '/assets/robot3.webp'].forEach(src => {
+        ['assets/robot1.webp', 'assets/robot2.webp', 'assets/robot3.webp'].forEach(src => {
             const img = new Image();
             img.src = src;
         });
